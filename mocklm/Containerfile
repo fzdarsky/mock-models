@@ -1,0 +1,28 @@
+# Stage 1: Build dependencies
+FROM registry.access.redhat.com/hi/python:3.14-builder AS builder
+
+USER 0
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+WORKDIR /app
+COPY pyproject.toml uv.lock* ./
+RUN uv sync --no-dev --no-install-project
+
+COPY src/ src/
+RUN uv sync --no-dev
+
+# Stage 2: Runtime
+FROM registry.access.redhat.com/hi/python:3.14
+
+WORKDIR /app
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/src /app/src
+
+ENV PATH="/app/.venv/bin:$PATH"
+ENV MOCKLM_MODE=echo
+
+EXPOSE 8080
+STOPSIGNAL SIGINT
+USER 1001
+
+CMD ["python", "-m", "mocklm.server"]

@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+patches:
+  - target:
+      kind: InferenceService
+      name: mocklm
+    patch: |
+      - op: replace
+        path: /spec/predictor/containers/0/env
+        value:
+          - name: MOCKLM_MODE
+            value: echo
+          - name: MOCKLM_CATCH_ALL
+            value: "true"
+          - name: MOCKLM_MODEL_NAME
+            value: mocklm
