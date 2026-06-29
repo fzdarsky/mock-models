@@ -1,23 +1,28 @@
 IMAGE_REPO ?= quay.io/fzdarsky/mocklm
 PORT ?= 8080
 VERSION ?=
+BUILD_HOST ?=
+BUILD_DIR ?= ~/builds/mocklm
+REMOTE_LOG ?= $(BUILD_DIR)/build.log
 
-COMMIT_SHA := $(or $(shell git rev-parse --short HEAD 2>/dev/null),dirty)
+COMMIT_SHA ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 TAGS := $(COMMIT_SHA) latest $(VERSION)
 
-# Map uname -m to OCI architecture names
-UNAME_ARCH := $(shell uname -m)
-ifeq ($(UNAME_ARCH),x86_64)
-  ARCH := amd64
-else ifeq ($(UNAME_ARCH),aarch64)
-  ARCH := arm64
-else
-  ARCH := $(UNAME_ARCH)
+# Map uname -m to OCI architecture names (overridable via ARCH=amd64)
+ifndef ARCH
+  UNAME_ARCH := $(shell uname -m)
+  ifeq ($(UNAME_ARCH),x86_64)
+    ARCH := amd64
+  else ifeq ($(UNAME_ARCH),aarch64)
+    ARCH := arm64
+  else
+    ARCH := $(UNAME_ARCH)
+  endif
 endif
 
 ARCHES ?= amd64 arm64
 
-.PHONY: lint test build push manifest run smoke-test
+.PHONY: lint test build push manifest run smoke-test remote-log
 
 lint:
 	uv run ruff check src/ tests/
@@ -26,6 +31,28 @@ lint:
 test:
 	uv run pytest
 
+ifdef BUILD_HOST
+build:
+	rsync -az --exclude='.git' --delete . $(BUILD_HOST):$(BUILD_DIR)/
+	ssh $(BUILD_HOST) "nohup sh -c '\
+		cd $(BUILD_DIR) && \
+		podman build --platform linux/$(ARCH) \
+			$(foreach t,$(TAGS),-t $(IMAGE_REPO):$(ARCH)-$(t)) \
+			-f Containerfile . \
+		' > $(REMOTE_LOG) 2>&1 &"
+	@echo "Build started on $(BUILD_HOST). Monitor with:"
+	@echo "  ssh $(BUILD_HOST) tail -f $(REMOTE_LOG)"
+
+push:
+	ssh $(BUILD_HOST) "nohup sh -c '\
+		$(foreach t,$(TAGS),podman push $(IMAGE_REPO):$(ARCH)-$(t) &&) true \
+		' > $(REMOTE_LOG) 2>&1 &"
+	@echo "Push started on $(BUILD_HOST). Monitor with:"
+	@echo "  ssh $(BUILD_HOST) tail -f $(REMOTE_LOG)"
+
+remote-log:
+	ssh $(BUILD_HOST) tail -f $(REMOTE_LOG)
+else
 build:
 	podman build --platform linux/$(ARCH) \
 		$(foreach t,$(TAGS),-t $(IMAGE_REPO):$(ARCH)-$(t)) \
@@ -35,6 +62,7 @@ push:
 	@for tag in $(TAGS); do \
 		podman push $(IMAGE_REPO):$(ARCH)-$$tag; \
 	done
+endif
 
 manifest:
 	@for tag in $(TAGS); do \

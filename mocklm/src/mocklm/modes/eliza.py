@@ -1,6 +1,6 @@
 import re
 
-from mocklm.models import Message
+from mocklm.models import Message, extract_text
 from mocklm.modes.base import Mode
 
 REFLECTIONS = {
@@ -157,11 +157,7 @@ class ElizaMode(Mode):
         self._fallback_index = 0
 
     def generate(self, messages: list[Message]) -> str:
-        text = ""
-        for msg in reversed(messages):
-            if msg.role == "user":
-                text = (msg.content or "").strip()
-                break
+        text = extract_text(messages).strip()
 
         if not text:
             return self._next_fallback()

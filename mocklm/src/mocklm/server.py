@@ -17,6 +17,7 @@ from mocklm.models import (
     ModelList,
     ModelObject,
     build_response,
+    extract_text,
     make_completion_id,
 )
 from mocklm.modes import create_mode
@@ -49,7 +50,13 @@ async def chat_completions(request: ChatCompletionRequest):
             media_type="text/event-stream",
         )
 
-    prompt_text = " ".join(m.content or "" for m in request.messages)
+    if settings.response_delay_ms > 0:
+        await asyncio.sleep(settings.response_delay_ms / 1000.0)
+
+    prompt_text = " ".join(
+        extract_text([m]) if m.role == "user" else (m.content if isinstance(m.content, str) else "")
+        for m in request.messages
+    )
     return build_response(request.model, content, prompt_text)
 
 

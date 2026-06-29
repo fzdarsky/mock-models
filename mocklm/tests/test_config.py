@@ -27,3 +27,34 @@ class TestConfig:
         monkeypatch.setenv("MOCKLM_CATCH_ALL", "false")
         settings = Settings()
         assert settings.catch_all is False
+
+    def test_response_delay_default(self):
+        settings = Settings(_env_file=None)
+        assert settings.response_delay_ms == 0
+
+    def test_new_modes_accepted(self, monkeypatch):
+        for mode_name in ("color", "describe", "detect", "scenario"):
+            monkeypatch.setenv("MOCKLM_MODE", mode_name)
+            if mode_name == "scenario":
+                monkeypatch.setenv("MOCKLM_SCENARIO", '[{"response": "test"}]')
+            settings = Settings()
+            assert settings.mode == mode_name
+            if mode_name == "scenario":
+                monkeypatch.delenv("MOCKLM_SCENARIO")
+
+    def test_detect_invalid_json(self, monkeypatch):
+        monkeypatch.setenv("MOCKLM_MODE", "detect")
+        monkeypatch.setenv("MOCKLM_DETECT_RESPONSE", "not json")
+        with pytest.raises(Exception, match="valid JSON"):
+            Settings()
+
+    def test_scenario_missing_config(self, monkeypatch):
+        monkeypatch.setenv("MOCKLM_MODE", "scenario")
+        with pytest.raises(Exception, match="required"):
+            Settings()
+
+    def test_scenario_invalid_json(self, monkeypatch):
+        monkeypatch.setenv("MOCKLM_MODE", "scenario")
+        monkeypatch.setenv("MOCKLM_SCENARIO", "not json")
+        with pytest.raises(Exception, match="valid JSON"):
+            Settings()
