@@ -19,7 +19,7 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Log in to quay.io
         run: podman login -u "$QUAY_USERNAME" -p "$QUAY_PASSWORD" quay.io
@@ -34,7 +34,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Log in to quay.io
         run: podman login -u "$QUAY_USERNAME" -p "$QUAY_PASSWORD" quay.io
