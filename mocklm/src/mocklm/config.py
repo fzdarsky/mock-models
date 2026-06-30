@@ -1,7 +1,7 @@
 import json
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _DEFAULT_DETECT_RESPONSE = (
@@ -23,6 +23,16 @@ class Settings(BaseSettings):
     detect_response: str = _DEFAULT_DETECT_RESPONSE
     scenario: str | None = None
     scenario_loop: bool = True
+
+    @field_validator("detect_response", mode="before")
+    @classmethod
+    def _empty_detect_response_to_default(cls, v: str) -> str:
+        return v if v != "" else _DEFAULT_DETECT_RESPONSE
+
+    @field_validator("scenario", mode="before")
+    @classmethod
+    def _empty_scenario_to_none(cls, v: str | None) -> str | None:
+        return v if v != "" else None
 
     @model_validator(mode="after")
     def _validate_mode_config(self):
