@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from mocklm.config import Settings
+from mocklm.metrics import get_metrics_response, track_request_end, track_request_start
 from mocklm.models import (
     ChatCompletionChunk,
     ChatCompletionRequest,
@@ -17,6 +18,7 @@ from mocklm.models import (
     ModelList,
     ModelObject,
     build_response,
+    estimate_tokens,
     extract_text,
     make_completion_id,
 )
@@ -42,22 +44,33 @@ async def chat_completions(request: ChatCompletionRequest):
             },
         )
 
+    model_name = settings.model_name
     content = mode.generate(request.messages)
-
-    if request.stream:
-        return StreamingResponse(
-            _stream_chunks(content, request.model),
-            media_type="text/event-stream",
-        )
-
-    if settings.response_delay_ms > 0:
-        await asyncio.sleep(settings.response_delay_ms / 1000.0)
 
     prompt_text = " ".join(
         extract_text([m]) if m.role == "user" else (m.content if isinstance(m.content, str) else "")
         for m in request.messages
     )
-    return build_response(request.model, content, prompt_text)
+    prompt_tokens = estimate_tokens(prompt_text)
+    generation_tokens = estimate_tokens(content)
+
+    if request.stream:
+        return StreamingResponse(
+            _stream_chunks_instrumented(
+                content, request.model, model_name, prompt_tokens, generation_tokens
+            ),
+            media_type="text/event-stream",
+        )
+
+    start = time.perf_counter()
+    track_request_start(model_name)
+    try:
+        if settings.response_delay_ms > 0:
+            await asyncio.sleep(settings.response_delay_ms / 1000.0)
+        return build_response(request.model, content, prompt_text)
+    finally:
+        duration = time.perf_counter() - start
+        track_request_end(model_name, "stop", prompt_tokens, generation_tokens, duration)
 
 
 async def _stream_chunks(content: str, model: str) -> AsyncGenerator[str, None]:
@@ -99,6 +112,28 @@ async def _stream_chunks(content: str, model: str) -> AsyncGenerator[str, None]:
     )
     yield f"data: {chunk.model_dump_json()}\n\n"
     yield "data: [DONE]\n\n"
+
+
+async def _stream_chunks_instrumented(
+    content: str,
+    model: str,
+    model_name: str,
+    prompt_tokens: int,
+    generation_tokens: int,
+) -> AsyncGenerator[str, None]:
+    start = time.perf_counter()
+    track_request_start(model_name)
+    try:
+        async for chunk in _stream_chunks(content, model):
+            yield chunk
+    finally:
+        duration = time.perf_counter() - start
+        track_request_end(model_name, "stop", prompt_tokens, generation_tokens, duration)
+
+
+@app.get("/metrics")
+async def metrics():
+    return get_metrics_response()
 
 
 @app.get("/v1/models")

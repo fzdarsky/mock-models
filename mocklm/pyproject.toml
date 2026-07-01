@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mocklm"
-version = "0.1.0"
+version = "0.2.2"
 description = "Lightweight mock model server implementing the OpenAI Chat Completions API"
 requires-python = ">=3.12"
 dependencies = [
@@ -13,6 +13,7 @@ dependencies = [
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
     "Pillow>=11.0",
+    "prometheus-client>=0.21",
 ]
 
 [project.scripts]
