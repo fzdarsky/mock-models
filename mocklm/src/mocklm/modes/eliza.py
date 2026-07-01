@@ -157,7 +157,7 @@ class ElizaMode(Mode):
         self._fallback_index = 0
 
     def generate(self, messages: list[Message]) -> str:
-        text = extract_text(messages).strip()
+        text = re.sub(r"[.!]+$", "", extract_text(messages).strip())
 
         if not text:
             return self._next_fallback()

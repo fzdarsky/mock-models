@@ -86,6 +86,12 @@ class TestElizaMode:
         r2 = mode.generate(msg2)
         assert r1 and r2
 
+    def test_strips_trailing_punctuation(self):
+        mode = ElizaMode()
+        messages = [Message(role="user", content="I'm annoyed by how hard it is to get things running on this platform.")]
+        response = mode.generate(messages)
+        assert ".?" not in response and ".!" not in response
+
     def test_empty_input(self):
         mode = ElizaMode()
         response = mode.generate([])
