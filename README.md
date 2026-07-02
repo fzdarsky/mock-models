@@ -12,7 +12,7 @@ A mock model server implementing the OpenAI Chat Completions API. Supports both 
 | ---- | ----------- | ------ |
 | `echo` (default) | Returns the user's message (with image metadata for multimodal) | `MOCKLM_MODE=echo` |
 | `static` | Returns a fixed string | `MOCKLM_MODE=static` |
-| `eliza` | ELIZA-like chatbot | `MOCKLM_MODE=eliza` |
+| `eliza` | Weizenbaum's ELIZA with the DOCTOR script | `MOCKLM_MODE=eliza` |
 | `color` | Returns dominant color name from image | `MOCKLM_MODE=color` |
 | `describe` | Returns image dimensions, format, and top-3 colors | `MOCKLM_MODE=describe` |
 | `detect` | Returns canned object detection JSON | `MOCKLM_MODE=detect` |
